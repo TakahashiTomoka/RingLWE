@@ -6,7 +6,7 @@ Note that even small parameters can be very time consuming.
 
 
 ・Fqf_Basic.sage, Fqf_Improves.sage
-attack using cosets $\F_{q^f}/\F_q$.
+attack using cosets $\mathbb{F}_{q^f}/\F_q$.
 
 
 ・Fq4_Basic.sage, Fq4_Improves.sage
