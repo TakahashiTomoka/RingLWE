@@ -12,7 +12,7 @@ p = 11
 d = 507
 q = 67
 f = 6
-ff = 3 #中間体の拡大次数
+ff = 3 #degree of subfield
 r0 = 7
 numsamples = q*10
 alpha = 1 /(10*q^f)
@@ -50,7 +50,6 @@ ecoeffs = [S(False) for _ in range(numsamples)]
 errors = [_my_dot_product(c, OKq_basis) for c in ecoeffs]
 
 # a, s
-#aはTrが整数になるよう、Yq,Yq^3の係数が0になるように制限（f=6でTr(y)が整数になるにはyのYq^2,Yq^4の係数が0になればよい）
 acoeffs_random = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
 acoeffs = [[F.random_element() if i < p-1 or 2*(p-1) <= i < 3*(p-1) or i >=4*(p-1)  else F(0) for i in range(OKq_deg)] for j in range(numsamples)]
 alst = [_my_dot_product(c, OKq_basis) for c in acoeffs]
