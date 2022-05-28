@@ -12,8 +12,7 @@ q = 10
 d = 503
 f = 3
 r0 = 4
-#numsamples = (q^f)*10
-numsamples = (q)*10
+numsamples = (q^f)*10
 
 S = ExtendCyclotomic(p, d, f, r0)
 
@@ -40,9 +39,10 @@ F = OKq.base_ring()
 
 # e 
 ecoeffs = []
-#ecoeffs = [S(False) for _ in range(numsamples)]
-ecoeffs = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
+S = ExtendCyclotomic(p, d, f, r0)
+ecoeffs = [S(False) for _ in range(numsamples)]
 errors = [_my_dot_product(c, OKq_basis) for c in ecoeffs]
+
 
 # a, s
 acoeffs = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
@@ -95,7 +95,6 @@ s0 = 0
 
 source = []
 for tt in Fqff:
-    #代表元生成
     g = 0
     for i in range(f):
         g += tt[i] * Yq^i
@@ -127,32 +126,32 @@ for g in Fqf:
         chi2 += (chi-E)^2
     chi2 = chi2/E
     
-    #if chi2 > chi2_value:
-    #    count +=1
-    #    guess = g
-    #    print('mj is not uniform. guess is {}.'.format(g))
+    if chi2 > chi2_value:
+        count +=1
+        guess = g
+        print('mj is not uniform. guess is {}.'.format(g))
     if chi2 > chi2_value:
         print("{} is not uniform.".format(g))
     else:
         print("{} is uniform.".format(g))
             
         
-#    if success and count == 1 :
-#        SUCCESS = True
-#        successCnt += 1 
-#        print('attack successful on {}'.format(fac))
-#        print('guess is {}'.format(guess))
-#    elif success and count > 1 :
-#        print('attack failure.')
-#        print('few samples.')
-#    else:
-#        print('attack failure.')
-#        print('NOT-RLWE')
+    if success and count == 1 :
+        SUCCESS = True
+        successCnt += 1 
+        print('attack successful on {}'.format(fac))
+        print('guess is {}'.format(guess))
+    elif success and count > 1 :
+        print('attack failure.')
+        print('few samples.')
+    else:
+        print('attack failure.')
+        print('NOT-RLWE')
     print('attack time on {} of F: {}'.format(fac, cputime(idealtime)))
 
     
 
-#全イデアル終了
+# end of all attacks over the finite field
 #print ('#'*40) 
 #print ('Summary:')
 #print ('p = {}, q = {}, d = {}, f = {}' .format(p, q, d, f))

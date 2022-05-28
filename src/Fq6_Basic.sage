@@ -8,12 +8,12 @@ load_attach_path('C:\\scripts\\sage')
 load('subcycsampler.sage','misc.sage','ExtendCyclotomic.sage')
 
 
-p = 13
-d = 503
-q = 53
-f = 4
-ff = 2 #中間体の拡大次数
-r0 = 5
+p = 11
+d = 507
+q = 67
+f = 6
+ff = 3 #中間体の拡大次数
+r0 = 7
 numsamples = q*10
 alpha = 1 /(10*q^f)
 
@@ -40,47 +40,23 @@ def trace(x, m, n):
     """The Trace map: F_{q^m} -> F_{q^n}"""
     return sum([x^(q^(n*i)) for i in range(m//n)])
 
-efile = r"C:\scripts\sage\samples\e_samples_p11_d504_q67_f3_r4.10000000000000.csv"
-afile = r"C:\scripts\sage\samples\a_samples_p11_d504_q67_f3_r4.10000000000000.csv"
-arandomfile = r"C:\scripts\sage\samples\a_samples_p11_d504_q67_f3_r4.10000000000000.csv"
-sfile = r"C:\scripts\sage\samples\s_samples_p11_d504_q67_f3_r4.10000000000000.csv"
-
 
 
 print('sampling start...')
-# e #エラーの取り方確認
-#ecoeffs = []
-#S = ExtendCyclotomic(p, d, f, r0)
-#ecoeffs = [S(False) for _ in range(numsamples)]
-#np.savetxt('e_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), ecoeffs, delimiter =",",fmt ='% s')
-with open(efile) as file:
-    reader =  csv.reader(file)
-    ecoeffs = [[int(v) for v in row]for row in reader]
-
+# e 
+ecoeffs = []
+S = ExtendCyclotomic(p, d, f, r0)
+ecoeffs = [S(False) for _ in range(numsamples)]
 errors = [_my_dot_product(c, OKq_basis) for c in ecoeffs]
 
 # a, s
-#aはTrが整数になるよう、Yqの係数が0になるように制限（f=4でTr(y)が整数になるにはyのYq^2の係数が0になればよい）
-#acoeffs_random = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
-#acoeffs = [[F.random_element() if i < p-1 or i >= 2*(p-1) else F(0) for i in range(OKq_deg)] for j in range(numsamples)]
-#np.savetxt('a_random_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), acoeffs_random, delimiter =",",fmt ='% s')
-#np.savetxt('a_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), acoeffs, delimiter =",",fmt ='% s')
-with open(arandomfile) as file:
-    reader =  csv.reader(file)
-    acoeffs_random = [[int(v) for v in row]for row in reader]
-with open(afile) as file:
-    reader =  csv.reader(file)
-    acoeffs = [[int(v) for v in row]for row in reader]
-
+#aはTrが整数になるよう、Yq,Yq^3の係数が0になるように制限（f=6でTr(y)が整数になるにはyのYq^2,Yq^4の係数が0になればよい）
+acoeffs_random = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
+acoeffs = [[F.random_element() if i < p-1 or 2*(p-1) <= i < 3*(p-1) or i >=4*(p-1)  else F(0) for i in range(OKq_deg)] for j in range(numsamples)]
 alst = [_my_dot_product(c, OKq_basis) for c in acoeffs]
 alst_random = [_my_dot_product(c, OKq_basis) for c in acoeffs_random]
 
-#scoeffs = [F.random_element() for i in range(OKq_deg)]
-#np.savetxt('s_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), scoeffs, delimiter =",",fmt ='% s')
-with open(sfile) as file:
-    reader =  csv.reader(file)
-    scoeffs = [int(row[0]) for row in reader]
-
+scoeffs = [F.random_element() for i in range(OKq_deg)]
 s = _my_dot_product(scoeffs, OKq_basis)
 
 # b
@@ -90,11 +66,12 @@ blst_random = [a*s + e for a,e in zip(alst_random, errors)]
 print('sampling finished...')
 
 
+
 # The Trace attack
 print('Trace attack beginning.')
-
 successCnt = 0 
 SUCCESS = False
+
 totaltime = cputime()
 for fac in fact:
     idealtime = cputime()
@@ -102,17 +79,18 @@ for fac in fact:
     print('ideal polynomial: {}'.format(fac))
     OKqq.<Xq,Yq> = OKq.quo(fac)
     rho = OKqq.convert_map_from(OKq)  
-    Fqf = F^(f-ff)
+    Fqf = F^(f - ff)
     Fqff = F^(ff-1)
     smodq = rho(s)
     print('rho(s) = {}'.format(smodq))
+
 
 
     amodqlst = [rho(a) for a in alst]
     amodqlst_random = [rho(a) for a in alst_random]
     bmodqlst = [rho(b) for b in blst]
     bmodqlst_random = [rho(b) for b in blst_random]
-    
+
 
     guess = Fqf.0
     count = 0
@@ -121,14 +99,11 @@ for fac in fact:
     chi2_record = 0
     x = Yq
 
-
-
     Tr_aa = [trace(x*aa,f,ff) for aa in amodqlst]
     Tr_bb = [trace(x*bb,f,ff) for bb in bmodqlst]
  
     
     for tt in Fqf:
-        #代表元生成
         t = 0
         j = 0
         for i in range(f):
@@ -136,6 +111,7 @@ for fac in fact:
                 j += 1
                 continue
             t += tt[i-j] * Yq^i
+
         success = True
         Tr_mj = []
         for aa, aa_Tr, bb_Tr in zip(amodqlst, Tr_aa, Tr_bb):
@@ -180,29 +156,18 @@ for fac in fact:
 
     chi2_record = 0
     if count >=1:
-        for gg in F:
-            #シークレットの値の推測
+        for gg in Fqff:
             g = Tr_s0/ff + guess
-            j = 0
+            j = 1
             for i in range(1,f):
                 if i % (f/ff) !=0:
                     j +=1
                     continue
                 else:
-                    g += gg*Yq^i
-                #    g += gg[i-j] * Yq^i
+                    g += gg[i-j]*Yq^i
 
-        #    M = []
-        #    for aa, aa_Tr, bb_Tr in zip(amodqlst, Tr1_aa, Tr1_bb):
-        #        if aa_Tr == 0 :
-        #            continue
-        #        ag_Tr = trace(x*aa*g, f, 1)
-        #        m = (bb_Tr - ag_Tr)/aa_Tr
-        #        tr_m = trace(m,ff,1)
-        #        if tr_m not in F:
-        #            break
-        #        M.append(F(tr_mj))
 
+ 
             M = []
             for aa, bb in zip(amodqlst_random, bmodqlst_random):
                 ee = bb - aa*g
@@ -228,7 +193,6 @@ for fac in fact:
             chi2 = chi2/E
 
             if chi2 > chi2_value:
-            #    s0_guess = max(hist, key = hist.get)
                 print('ee is not uniform. g is {}.'.format(g))
                 if chi2 > chi2_record:
                     chi2_record = chi2
@@ -255,7 +219,7 @@ for fac in fact:
 
     
 
-#全イデアル終了
+# end of all attacks over the finite field
 print ('#'*40) 
 print ('Summary:')
 print ('p = {}, q = {}, d = {}, f = {}' .format(p, q, d, f))

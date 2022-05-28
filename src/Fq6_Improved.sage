@@ -1,3 +1,6 @@
+#Fpの値のみに注目して攻撃を行う。
+#ただし、m >= 3 とする。(最後にシークレットを推測する関係) 
+
 from sage.stats.distributions.discrete_gaussian_integer import DiscreteGaussianDistributionIntegerSampler
 import random
 import sys
@@ -8,15 +11,14 @@ load_attach_path('C:\\scripts\\sage')
 load('subcycsampler.sage','misc.sage','ExtendCyclotomic.sage')
 
 
-p = 13
-d = 503
-q = 53
-f = 4
-ff = 2 #中間体の拡大次数
-r0 = 5
+p = 11
+d = 507
+q = 67
+f = 6
+ff = 3 #中間体の拡大次数
+r0 = 7.0
 numsamples = q*10
 alpha = 1 /(10*q^f)
-
 chi2_value = stats.chi2.ppf(1-alpha, q-1)
 
 print ('p = {}, d = {}, q = {}, f = {}' .format(p, d, q, f))
@@ -33,19 +35,15 @@ fact = [fac[0] for fac in cycmodq.factor()] # prime ideal decomposition of ideal
 F = OKq.base_ring()
 
 
+
 def _my_dot_product(lst1,lst2):
     return sum([a*b for a,b in zip(lst1,lst2)])
-
-def frob(x):
-    """The Frobenius automorphism."""
-    return x^(q^ff)
 
 def trace(x, m, n):
     """The Trace map: F_{q^m} -> F_{q^n}"""
     return sum([x^(q^(n*i)) for i in range(m//n)])
 
 #多項式のすべての係数を取得
-#lift()でR/I上の多項式をR上の多項式と考えることができる。
 def get_coef_all(x, gen, n):
     return [x.lift().coefficient({gen: i}) for i in range(n)]
 
@@ -53,55 +51,23 @@ def get_coef_all(x, gen, n):
 def get_coef(x, gen,n):
     return x.lift().coefficient({gen: n})
 
-#多項式の一部を取得する
-def get_subpoly(x, gen, lst):
-    lst1 = [x.lift().coefficient({gen: i}) for i in lst]
-    lst2 = [gen^i for i in lst]
-    return (_my_dot_product(lst1,lst2))
-
-
-efile = r"C:\scripts\sage\samples\e_samples_p13_d503_q53_f4_r5.csv"
-afile = r"C:\scripts\sage\samples\a_samples_p13_d503_q53_f4_r5.csv"
-arandomfile = r"C:\scripts\sage\samples\a_random_samples_p13_d503_q53_f4_r5.csv"
-sfile = r"C:\scripts\sage\samples\s_samples_p13_d503_q53_f4_r5.csv"
-
 
 
 print('sampling start...')
-# e #エラーの取り方確認
-#ecoeffs = []
-#S = ExtendCyclotomic(p, d, f, r0)
-#ecoeffs = [S(False) for _ in range(numsamples)]
-#np.savetxt('e_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), ecoeffs, delimiter =",",fmt ='% s')
-with open(efile) as file:
-    reader =  csv.reader(file)
-    ecoeffs = [[int(v) for v in row]for row in reader]
-
+# e 
+ecoeffs = []
+S = ExtendCyclotomic(p, d, f, r0)
+ecoeffs = [S(False) for _ in range(numsamples)]
 errors = [_my_dot_product(c, OKq_basis) for c in ecoeffs]
 
 # a, s
 #aはTrが整数になるよう、Yqの係数が0になるように制限（f=4でTr(y)が整数になるにはyのYq^2の係数が0になればよい）
-#acoeffs = [[F.random_element() if i < p-1 or i >= 2*(p-1) else F(0) for i in range(OKq_deg)] for j in range(numsamples)]
-#acoeffs_random = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
-#np.savetxt('a_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), acoeffs, delimiter =",",fmt ='% s')
-#np.savetxt('a_random_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), acoeffs_random, delimiter =",",fmt ='% s')
-with open(afile) as file:
-    reader =  csv.reader(file)
-    acoeffs = [[int(v) for v in row]for row in reader]
-with open(arandomfile) as file:
-    reader =  csv.reader(file)
-    acoeffs_random = [[int(v) for v in row]for row in reader]
-
-
+acoeffs_random = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
+acoeffs = [[F.random_element() if i < p-1 or i >= 2*(p-1) else F(0) for i in range(OKq_deg)] for j in range(numsamples)]
 alst = [_my_dot_product(c, OKq_basis) for c in acoeffs]
 alst_random = [_my_dot_product(c, OKq_basis) for c in acoeffs_random]
 
-#scoeffs = [F.random_element() for i in range(OKq_deg)]
-#np.savetxt('s_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), scoeffs, delimiter =",",fmt ='% s')
-with open(sfile) as file:
-    reader =  csv.reader(file)
-    scoeffs = [int(row[0]) for row in reader]
-
+scoeffs = [F.random_element() for i in range(OKq_deg)]
 s = _my_dot_product(scoeffs, OKq_basis)
 
 # b
@@ -111,11 +77,13 @@ blst_random = [a*s + e for a,e in zip(alst_random, errors)]
 print('sampling finished...')
 
 
-# The Trace attack
-print('Y_Trace attack beginning.')
 
+# The Trace attack
+print('Trace attack using a coeff beginning.')
 successCnt = 0 
 SUCCESS = False
+
+totaltime = cputime()
 for fac in fact:
     idealtime = cputime()
     print('------------------------------')
@@ -125,8 +93,9 @@ for fac in fact:
     Fqf = F^(f - ff)
     Fqff = F^(ff-1)
     smodq = rho(s)
+    smodqTr = trace(smodq, f,1)
     print('rho(s) = {}'.format(smodq))
-
+    print('Tr(rho(s)) = {}'.format(smodqTr))
 
 
     amodqlst = [rho(a) for a in alst]
@@ -135,21 +104,18 @@ for fac in fact:
     bmodqlst_random = [rho(b) for b in blst_random]
 
 
-    
     guess = Fqf.0
     count = 0
     Tr_s0 = 0
     s0 = 0
     chi2_record = 0
-    x = Yq^3
+    x = Yq
 
-    Frob_aa = [-2*get_coef(aa,Yq,3)*x for aa in amodqlst]
-    Frob_bb = [-2*get_coef(bb,Yq,3)*x for bb in bmodqlst]
-
+    Tr_aa = [get_coef(aa,Yq,f-1) for aa in amodqlst]
+    Tr_bb = [get_coef(bb,Yq,f-1) for bb in bmodqlst]
  
     
     for tt in Fqf:
-        #代表元生成
         t = 0
         j = 0
         for i in range(f):
@@ -157,30 +123,30 @@ for fac in fact:
                 j += 1
                 continue
             t += tt[i-j] * Yq^i
+
         success = True
-        Tr_mj = []
-        for aa, aa_bar, bb_bar in zip(amodqlst,Frob_aa, Frob_bb):
-            if aa_bar == 0 :
+        Mj = []
+        for aa, aa_Tr, bb_Tr in zip(amodqlst, Tr_aa, Tr_bb):
+            if aa_Tr == 0 :
                 continue
-            at = aa*t
-            at_bar = -2*get_coef(at,Yq,3)*x
-            mij = (bb_bar - at_bar)/aa_bar
-            tr_mj = get_coef(mij, Yq, 0)
-            if tr_mj not in F:
+            at_Tr = get_coef(aa*t, Yq, f-1)
+            mj = (bb_Tr - at_Tr)/aa_Tr
+            if mj not in F:
                 success = False
                 break
-            Tr_mj.append(F(tr_mj))
-        if not success or len(Tr_mj) == 0 :
+            Mj.append(F(mj))
+
+        if not success or len(Mj) == 0 :
             break
 
 
         hist = {}
-        for tr_mj in Tr_mj:
-            if tr_mj in hist:
-                hist[tr_mj] += 1
+        for mj in Mj:
+            if mj in hist:
+                hist[mj] += 1
             else:
-                hist[tr_mj] =1
-        E = len(Tr_mj) // q
+                hist[mj] =1
+        E = len(Mj) // q
         chi2 = 0
         for chi in hist.values():
             chi2 += (chi-E)^2
@@ -189,7 +155,7 @@ for fac in fact:
         if chi2 > chi2_value:
             count +=1
             s0_guess = max(hist, key = hist.get)
-            print('tr_mj is not uniform. guess is {}.'.format(t))
+            print('mj is not uniform. guess is {}.'.format(t))
             print('the guess of the Tr(s0) is {}.'.format(s0_guess))
             if chi2 > chi2_record:
                 chi2_record = chi2
@@ -200,18 +166,17 @@ for fac in fact:
 
 
     chi2_record = 0
+    guess_s = 0
     if count >=1:
-        for gg in F:
-            #シークレットの値の推測
+        for gg in Fqff:
             g = Tr_s0 + guess
-            j = 0
+            j = 1
             for i in range(1,f):
                 if i % (f/ff) !=0:
                     j +=1
                     continue
                 else:
-                    g += gg*Yq^i
-
+                    g += gg[i-j]*Yq^i
 
             M = []
             for aa, bb in zip(amodqlst_random, bmodqlst_random):
@@ -238,33 +203,30 @@ for fac in fact:
             chi2 = chi2/E
 
             if chi2 > chi2_value:
-            #    s0_guess = max(hist, key = hist.get)
                 print('ee is not uniform. g is {}.'.format(g))
                 if chi2 > chi2_record:
                     chi2_record = chi2
                     guess_s = g
 
     
+
    
     if success and count == 1 :
         SUCCESS = True
-        #guess_s = guess + s0
         successCnt += 1 
         print('attack successful on {}'.format(fac))
         print('guess is {}'.format(guess_s))
     elif success and count > 1 :
-        print('attack failure.')
-        #print('few samples.')
-        #guess_s = guess + s0
-        print('guess is {}'.format(guess_s))
+        print('attack successful(?) on {}'.format(fac))
+        print('Final guess is {}'.format(guess_s))
     else:
         print('attack failure.')
         print('NOT-RLWE')
-    print('attack time on {}: {}'.format(fac,cputime(idealtime)))
-    
+    print('attack time on {}: {}'.format(fac, cputime(idealtime)))
+
     
 
-#全イデアル終了
+# end of all attacks over the finite field
 print ('#'*40) 
 print ('Summary:')
 print ('p = {}, q = {}, d = {}, f = {}' .format(p, q, d, f))
@@ -272,8 +234,4 @@ print ('r0 = {}'.format(r0))
 print ('number of samples = {}'.format(numsamples))
 print ('success? : %s'%SUCCESS)
 print ('success count = {}'.format(successCnt))
-print ('average Time = {}(totaltime)'.format(np.average(Time)))
-
-
-
-
+print ('Total Time = {}(totaltime)'.format(cputime))

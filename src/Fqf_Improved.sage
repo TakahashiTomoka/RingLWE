@@ -1,3 +1,5 @@
+#Fpの値のみに注目して攻撃を行う。
+
 from sage.stats.distributions.discrete_gaussian_integer import DiscreteGaussianDistributionIntegerSampler
 import random
 import sys
@@ -31,9 +33,6 @@ fact = [fac[0] for fac in cycmodq.factor()] # prime ideal decomposition of ideal
 F = OKq.base_ring()
 
 
-efile = r"C:\scripts\sage\samples\e_samples_p11_d504_q67_f3_r4.10000000000000.csv"
-afile = r"C:\scripts\sage\samples\a_samples_p11_d504_q67_f3_r4.10000000000000.csv"
-sfile = r"C:\scripts\sage\samples\s_samples_p11_d504_q67_f3_r4.10000000000000.csv"
 
 
 def _my_dot_product(lst1,lst2):
@@ -43,46 +42,41 @@ def trace(x, n):
     """The Trace map: F_{q^n} -> F_{q}"""
     return sum([x^(q^i) for i in range(n)])
 
+#Get all coefficients of a polynomial of degree n
+def get_coef_all(x, gen, n):
+    return [x.lift().coefficient({gen: i}) for i in range(n)]
+
+#Get the yq^n coefficient of the polynomial 
+def get_coef(x, gen,n):
+    return x.lift().coefficient({gen: n})
+
+
+
 print('sampling start...')
 # e 
-#ecoeffs = []
-#S = ExtendCyclotomic(p, d, f, r0)
-#ecoeffs = [S(False) for _ in range(numsamples)]
-#np.savetxt('e_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), ecoeffs, delimiter =",",fmt ='% s')
-with open(efile) as file:
-    reader =  csv.reader(file)
-    ecoeffs = [[int(v) for v in row]for row in reader]
+ecoeffs = []
+S = ExtendCyclotomic(p, d, f, r0)
+ecoeffs = [S(False) for _ in range(numsamples)]
 errors = [_my_dot_product(c, OKq_basis) for c in ecoeffs]
 
 
 # a, s
-#acoeffs = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
-#np.savetxt('a_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), acoeffs, delimiter =",",fmt ='% s')
-#with open('a_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0)) as f:
-with open(afile) as file:
-    reader =  csv.reader(file)
-    acoeffs = [[int(v) for v in row]for row in reader]
+acoeffs = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
 alst = [_my_dot_product(c, OKq_basis) for c in acoeffs]
-    
 
-#scoeffs = [F.random_element() for i in range(OKq_deg)]
-#np.savetxt('s_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0), scoeffs, delimiter =",",fmt ='% s')
-#with open('s_samples_p{}_d{}_q{}_f{}_r{}.csv'.format(p,d,q,f,r0)) as f:
-with open(sfile) as file:
-    reader =  csv.reader(file)
-    scoeffs = [int(row[0]) for row in reader]
-print(scoeffs)
+scoeffs = [F.random_element() for i in range(OKq_deg)]
 s = _my_dot_product(scoeffs, OKq_basis)
+
 
 # b
 blst = [a*s + e for a,e in zip(alst, errors)]
 
 print('sampling finished...')
 
+
+
 # The Trace attack
-print('Trace attack beginning.')
-
-
+print('Trace attack using a coeff beginning.')
 successCnt = 0 
 SUCCESS = False
 totaltime = cputime()
@@ -91,9 +85,8 @@ for fac in fact:
     print('------------------------------')
     print('ideal polynomial: {}'.format(fac))
     OKqq.<Xq,Yq> = OKq.quo(fac)
-    rho = OKqq.convert_map_from(OKq)
+    rho = OKqq.convert_map_from(OKq)  
     Fqf = F^(f-1)
-    #Fqf = F^2
     smodq = rho(s)
     print('rho(s) = {}'.format(smodq))
 
@@ -108,40 +101,41 @@ for fac in fact:
     chi2_record = 0
     x = Yq
 
-    Tr_aa = [trace(x*aa,f) for aa in amodqlst]
-    Tr_bb = [trace(x*bb,f) for bb in bmodqlst]
+    Tr_aa = [get_coef(aa,Yq,f-1) for aa in amodqlst]
+    Tr_bb = [get_coef(bb,Yq,f-1) for bb in bmodqlst]
  
-    
+    #Tr_aa = [coeff(aa) for aa in amodqlst]
+    #Tr_bb = [coeff(bb) for bb in bmodqlst]
+ 
+
     for tt in Fqf:
-        #代表元生成
         t = 0
         for i in range(1,f):
             t += tt[i-1] * Yq^i
 
         success = True
-        mj = []
-        Tr_mj = []
+        Mj = []
         for aa, aa_Tr, bb_Tr in zip(amodqlst, Tr_aa, Tr_bb):
             if aa_Tr == 0 :
                 continue
-            at_Tr = trace(x*aa*t,f)
-            mij = (bb_Tr - at_Tr)/aa_Tr
-            if mij not in F:
+            at_Tr = get_coef(aa*t, Yq, f-1)
+            mj = (bb_Tr - at_Tr)/aa_Tr
+            if mj not in F:
                 success = False
                 break
-            Tr_mj.append(F(mij))
+            Mj.append(F(mj))
 
-        if not success or len(Tr_mj) == 0 :
+        if not success or len(Mj) == 0 :
             break
 
 
         hist = {}
-        for tr_mj in Tr_mj:
-            if tr_mj in hist:
-                hist[tr_mj] += 1
+        for mj in Mj:
+            if mj in hist:
+                hist[mj] += 1
             else:
-                hist[tr_mj] =1
-        E = len(Tr_mj) // q
+                hist[mj] =1
+        E = len(Mj) // q
         chi2 = 0
         for chi in hist.values():
             chi2 += (chi-E)^2
@@ -165,10 +159,11 @@ for fac in fact:
         print('attack successful on {}'.format(fac))
         print('guess is {}'.format(guess_s))
     elif success and count > 1 :
-        print('attack failure.')
-        print('few samples.')
+        #print('attack failure.')
+        #print('few samples.')
+        print('attack successful(?) on {}'.format(fac))
         guess_s = guess + s0
-        print('guess is {}'.format(guess_s))
+        print('Final guess is {}'.format(guess_s))
     else:
         print('attack failure.')
         print('NOT-RLWE')
@@ -176,7 +171,7 @@ for fac in fact:
 
     
 
-#全イデアル終了
+# end of all attacks over the finite field
 print ('#'*40) 
 print ('Summary:')
 print ('p = {}, q = {}, d = {}, f = {}' .format(p, q, d, f))
