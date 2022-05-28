@@ -1,6 +1,3 @@
-#Fpの値のみに注目して攻撃を行う。
-#ただし、m >= 3 とする。(最後にシークレットを推測する関係) 
-
 from sage.stats.distributions.discrete_gaussian_integer import DiscreteGaussianDistributionIntegerSampler
 import random
 import sys
@@ -15,7 +12,7 @@ p = 11
 d = 507
 q = 67
 f = 6
-ff = 3 #中間体の拡大次数
+ff = 3 #degree of subfield
 r0 = 7.0
 numsamples = q*10
 alpha = 1 /(10*q^f)
@@ -61,7 +58,6 @@ ecoeffs = [S(False) for _ in range(numsamples)]
 errors = [_my_dot_product(c, OKq_basis) for c in ecoeffs]
 
 # a, s
-#aはTrが整数になるよう、Yqの係数が0になるように制限（f=4でTr(y)が整数になるにはyのYq^2の係数が0になればよい）
 acoeffs_random = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
 acoeffs = [[F.random_element() if i < p-1 or i >= 2*(p-1) else F(0) for i in range(OKq_deg)] for j in range(numsamples)]
 alst = [_my_dot_product(c, OKq_basis) for c in acoeffs]
