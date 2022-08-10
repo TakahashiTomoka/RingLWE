@@ -1,22 +1,19 @@
 from sage.stats.distributions.discrete_gaussian_integer import DiscreteGaussianDistributionIntegerSampler
 import random
 import sys
-import numpy as np
 import csv
+import numpy as np
 from scipy import stats
-load_attach_path('C:\\scripts\\sage')
-load('subcycsampler.sage','misc.sage','ExtendCyclotomic.sage')
+load('sampling/subcycsampler.sage','sampling/misc.sage','sampling/ExtendCyclotomic.sage')
 
 
-p = 13
-d = 503
-q = 53
-f = 4
-ff = 2 #degree of subfield
-r0 = 5
-numsamples = q*10
+p = 11
+d = 504
+q = 67
+f = 3
+r0 = 4.1
+numsamples = 10*q
 alpha = 1 /(10*q^f)
-
 chi2_value = stats.chi2.ppf(1-alpha, q-1)
 
 print ('p = {}, d = {}, q = {}, f = {}' .format(p, d, q, f))
@@ -33,14 +30,13 @@ fact = [fac[0] for fac in cycmodq.factor()] # prime ideal decomposition of ideal
 F = OKq.base_ring()
 
 
+
 def _my_dot_product(lst1,lst2):
     return sum([a*b for a,b in zip(lst1,lst2)])
 
-def trace(x, m, n):
-    """The Trace map: F_{q^m} -> F_{q^n}"""
-    return sum([x^(q^(n*i)) for i in range(m//n)])
-
-
+def trace(x, n):
+    """The Trace map: F_{q^n} -> F_{q}"""
+    return sum([x^(q^i) for i in range(n)])
 
 print('sampling start...')
 # e 
@@ -49,24 +45,23 @@ S = ExtendCyclotomic(p, d, f, r0)
 ecoeffs = [S(False) for _ in range(numsamples)]
 errors = [_my_dot_product(c, OKq_basis) for c in ecoeffs]
 
+
 # a, s
-acoeffs_random = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
-acoeffs = [[F.random_element() if i < p-1 or i >= 2*(p-1) else F(0) for i in range(OKq_deg)] for j in range(numsamples)]
+acoeffs = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
 alst = [_my_dot_product(c, OKq_basis) for c in acoeffs]
-alst_random = [_my_dot_product(c, OKq_basis) for c in acoeffs_random]
+    
 
 scoeffs = [F.random_element() for i in range(OKq_deg)]
 s = _my_dot_product(scoeffs, OKq_basis)
 
 # b
 blst = [a*s + e for a,e in zip(alst, errors)]
-blst_random = [a*s + e for a,e in zip(alst_random, errors)]
 
 print('sampling finished...')
 
-
 # The Trace attack
 print('Trace attack beginning.')
+
 
 successCnt = 0 
 SUCCESS = False
@@ -76,52 +71,44 @@ for fac in fact:
     print('------------------------------')
     print('ideal polynomial: {}'.format(fac))
     OKqq.<Xq,Yq> = OKq.quo(fac)
-    rho = OKqq.convert_map_from(OKq)  
-    Fqf = F^(f-ff)
-    Fqff = F^(ff-1)
+    rho = OKqq.convert_map_from(OKq)
+    Fqf = F^(f-1)
+    #Fqf = F^2
     smodq = rho(s)
     print('rho(s) = {}'.format(smodq))
 
 
     amodqlst = [rho(a) for a in alst]
-    amodqlst_random = [rho(a) for a in alst_random]
     bmodqlst = [rho(b) for b in blst]
-    bmodqlst_random = [rho(b) for b in blst_random]
-    
+
 
     guess = Fqf.0
-    count = 0
-    Tr_s0 = 0
+    count = 0 
     s0 = 0
     chi2_record = 0
     x = Yq
 
-
-
-    Tr_aa = [trace(x*aa,f,ff) for aa in amodqlst]
-    Tr_bb = [trace(x*bb,f,ff) for bb in bmodqlst]
+    Tr_aa = [trace(x*aa,f) for aa in amodqlst]
+    Tr_bb = [trace(x*bb,f) for bb in bmodqlst]
  
     
     for tt in Fqf:
         t = 0
-        j = 0
-        for i in range(f):
-            if i % (f//ff) ==0:
-                j += 1
-                continue
-            t += tt[i-j] * Yq^i
+        for i in range(1,f):
+            t += tt[i-1] * Yq^i
+
         success = True
+        mj = []
         Tr_mj = []
         for aa, aa_Tr, bb_Tr in zip(amodqlst, Tr_aa, Tr_bb):
             if aa_Tr == 0 :
                 continue
-            at_Tr = trace(x*aa*t, f, ff)
+            at_Tr = trace(x*aa*t,f)
             mij = (bb_Tr - at_Tr)/aa_Tr
-            tr_mj = trace(mij,ff,1)
-            if tr_mj not in F:
+            if mij not in F:
                 success = False
                 break
-            Tr_mj.append(F(tr_mj))
+            Tr_mj.append(F(mij))
 
         if not success or len(Tr_mj) == 0 :
             break
@@ -142,74 +129,24 @@ for fac in fact:
         if chi2 > chi2_value:
             count +=1
             s0_guess = max(hist, key = hist.get)
-            print('tr_mj is not uniform. guess is {}.'.format(t))
-            print('the guess of the Tr(s0) is {}.'.format(s0_guess))
+            print('mj is not uniform. guess is {}.'.format(t))
+            print('the guess of the s0 is {}.'.format(s0_guess))
             if chi2 > chi2_record:
                 chi2_record = chi2
                 guess = t
-                Tr_s0 = s0_guess
+                s0 = s0_guess 
 
-
-
-
-    chi2_record = 0
-    if count >=1:
-        for gg in F:
-            g = Tr_s0/ff + guess
-            j = 0
-            for i in range(1,f):
-                if i % (f/ff) !=0:
-                    j +=1
-                    continue
-                else:
-                    g += gg*Yq^i
         
-        
-
-            M = []
-            for aa, bb in zip(amodqlst_random, bmodqlst_random):
-                ee = bb - aa*g
-                m = trace(ee*x, f, 1)
-                if m not in F:
-                    break
-                M.append(m)
-
-
-            if len(M) == 0 :
-                break
-        
-            hist = {}
-            for m in M:
-                if m in hist:
-                    hist[m] += 1
-                else:
-                    hist[m] =1
-            E = len(M) // q
-            chi2 = 0
-            for chi in hist.values():
-                chi2 += (chi-E)^2
-            chi2 = chi2/E
-
-            if chi2 > chi2_value:
-            #    s0_guess = max(hist, key = hist.get)
-                print('ee is not uniform. g is {}.'.format(g))
-                if chi2 > chi2_record:
-                    chi2_record = chi2
-                    guess_s = g
-
-    
-
-   
     if success and count == 1 :
         SUCCESS = True
-        #guess_s = guess + s0
+        guess_s = guess + s0
         successCnt += 1 
         print('attack successful on {}'.format(fac))
         print('guess is {}'.format(guess_s))
     elif success and count > 1 :
         print('attack failure.')
-        #print('few samples.')
-        #guess_s = guess + s0
+        print('few samples.')
+        guess_s = guess + s0
         print('guess is {}'.format(guess_s))
     else:
         print('attack failure.')

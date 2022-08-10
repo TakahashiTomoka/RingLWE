@@ -3,18 +3,16 @@ import random
 import sys
 import numpy as np
 from scipy import stats
-load_attach_path('C:\\scripts\\sage')
-load('subcycsampler.sage','misc.sage','ExtendCyclotomic.sage')
+load('sampling/subcycsampler.sage','sampling/misc.sage','sampling/ExtendCyclotomic.sage')
 
 
 p = 11
-q = 10
-d = 503
+d = 504
+q = 67
 f = 3
-r0 = 4
+r0 = 4.1
 numsamples = (q^f)*10
 
-S = ExtendCyclotomic(p, d, f, r0)
 
 alpha = 1 /(10*q^f)
 chi2_value = stats.chi2.ppf(1-alpha, (q^f)-1)
@@ -61,7 +59,7 @@ print('chi2 attack beginning.')
 
 successCnt = 0 
 SUCCESS = False
-#totaltime = cputime()
+
 
 
 #for fac in fact:

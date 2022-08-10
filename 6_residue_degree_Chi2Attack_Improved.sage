@@ -4,8 +4,7 @@ import sys
 import numpy as np
 import csv
 from scipy import stats
-load_attach_path('C:\\scripts\\sage')
-load('subcycsampler.sage','misc.sage','ExtendCyclotomic.sage')
+load('sampling/subcycsampler.sage','sampling/misc.sage','sampling/ExtendCyclotomic.sage')
 
 
 p = 11

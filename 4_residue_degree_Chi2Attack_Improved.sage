@@ -4,19 +4,17 @@ import sys
 import numpy as np
 import csv
 from scipy import stats
-load_attach_path('C:\\scripts\\sage')
-load('subcycsampler.sage','misc.sage','ExtendCyclotomic.sage')
+load('sampling/subcycsampler.sage','sampling/misc.sage','sampling/ExtendCyclotomic.sage')
 
 
-p = 11
-d = 507
-q = 67
-f = 6
-ff = 3 #degree of subfield
-r0 = 7
+p = 13
+d = 503
+q = 53
+f = 4
+ff = 2 #degree of subfield
+r0 = 5.0
 numsamples = q*10
 alpha = 1 /(10*q^f)
-
 chi2_value = stats.chi2.ppf(1-alpha, q-1)
 
 print ('p = {}, d = {}, q = {}, f = {}' .format(p, d, q, f))
@@ -33,12 +31,23 @@ fact = [fac[0] for fac in cycmodq.factor()] # prime ideal decomposition of ideal
 F = OKq.base_ring()
 
 
+
 def _my_dot_product(lst1,lst2):
     return sum([a*b for a,b in zip(lst1,lst2)])
 
 def trace(x, m, n):
     """The Trace map: F_{q^m} -> F_{q^n}"""
     return sum([x^(q^(n*i)) for i in range(m//n)])
+
+
+#Get all coefficients of a polynomial of degree n
+def get_coef_all(x, gen, n):
+    return [x.lift().coefficient({gen: i}) for i in range(n)]
+
+#Get the yq^n coefficient of the polynomial 
+def get_coef(x, gen,n):
+    return x.lift().coefficient({gen: n})
+
 
 
 
@@ -51,9 +60,10 @@ errors = [_my_dot_product(c, OKq_basis) for c in ecoeffs]
 
 # a, s
 acoeffs_random = [[F.random_element() for i in range(OKq_deg)] for _ in range(numsamples)]
-acoeffs = [[F.random_element() if i < p-1 or 2*(p-1) <= i < 3*(p-1) or i >=4*(p-1)  else F(0) for i in range(OKq_deg)] for j in range(numsamples)]
+acoeffs = [[F.random_element() if i < p-1 or i >= 2*(p-1) else F(0) for i in range(OKq_deg)] for j in range(numsamples)]
 alst = [_my_dot_product(c, OKq_basis) for c in acoeffs]
 alst_random = [_my_dot_product(c, OKq_basis) for c in acoeffs_random]
+
 
 scoeffs = [F.random_element() for i in range(OKq_deg)]
 s = _my_dot_product(scoeffs, OKq_basis)
@@ -66,8 +76,9 @@ print('sampling finished...')
 
 
 
+
 # The Trace attack
-print('Trace attack beginning.')
+print('Trace attack using a coeff beginning.')
 successCnt = 0 
 SUCCESS = False
 
@@ -79,7 +90,6 @@ for fac in fact:
     OKqq.<Xq,Yq> = OKq.quo(fac)
     rho = OKqq.convert_map_from(OKq)  
     Fqf = F^(f - ff)
-    Fqff = F^(ff-1)
     smodq = rho(s)
     print('rho(s) = {}'.format(smodq))
 
@@ -98,8 +108,8 @@ for fac in fact:
     chi2_record = 0
     x = Yq
 
-    Tr_aa = [trace(x*aa,f,ff) for aa in amodqlst]
-    Tr_bb = [trace(x*bb,f,ff) for bb in bmodqlst]
+    Tr_aa = [get_coef(aa,Yq,f-1) for aa in amodqlst]
+    Tr_bb = [get_coef(bb,Yq,f-1) for bb in bmodqlst]
  
     
     for tt in Fqf:
@@ -112,29 +122,28 @@ for fac in fact:
             t += tt[i-j] * Yq^i
 
         success = True
-        Tr_mj = []
+        Mj = []
         for aa, aa_Tr, bb_Tr in zip(amodqlst, Tr_aa, Tr_bb):
             if aa_Tr == 0 :
                 continue
-            at_Tr = trace(x*aa*t, f, ff)
-            mij = (bb_Tr - at_Tr)/aa_Tr
-            tr_mj = trace(mij,ff,1)
-            if tr_mj not in F:
+            at_Tr = get_coef(aa*t, Yq, f-1)
+            mj = (bb_Tr - at_Tr)/aa_Tr
+            if mj not in F:
                 success = False
                 break
-            Tr_mj.append(F(tr_mj))
+            Mj.append(F(mj))
 
-        if not success or len(Tr_mj) == 0 :
+        if not success or len(Mj) == 0 :
             break
 
 
         hist = {}
-        for tr_mj in Tr_mj:
-            if tr_mj in hist:
-                hist[tr_mj] += 1
+        for mj in Mj:
+            if mj in hist:
+                hist[mj] += 1
             else:
-                hist[tr_mj] =1
-        E = len(Tr_mj) // q
+                hist[mj] =1
+        E = len(Mj) // q
         chi2 = 0
         for chi in hist.values():
             chi2 += (chi-E)^2
@@ -143,7 +152,7 @@ for fac in fact:
         if chi2 > chi2_value:
             count +=1
             s0_guess = max(hist, key = hist.get)
-            print('tr_mj is not uniform. guess is {}.'.format(t))
+            print('mj is not uniform. guess is {}.'.format(t))
             print('the guess of the Tr(s0) is {}.'.format(s0_guess))
             if chi2 > chi2_record:
                 chi2_record = chi2
@@ -154,23 +163,22 @@ for fac in fact:
 
 
     chi2_record = 0
+    guess_s = 0
     if count >=1:
-        for gg in Fqff:
-            g = Tr_s0/ff + guess
-            j = 1
+        for gg in F:
+            g = Tr_s0 + guess 
+            j = 0
             for i in range(1,f):
                 if i % (f/ff) !=0:
                     j +=1
                     continue
                 else:
-                    g += gg[i-j]*Yq^i
-
-
- 
+                    g += gg*Yq^i
+    
             M = []
             for aa, bb in zip(amodqlst_random, bmodqlst_random):
                 ee = bb - aa*g
-                m = trace(ee*x, f, 1)
+                m = get_coef(ee, Yq, f-1)
                 if m not in F:
                     break
                 M.append(m)
@@ -202,20 +210,16 @@ for fac in fact:
    
     if success and count == 1 :
         SUCCESS = True
-        #guess_s = guess + s0
         successCnt += 1 
         print('attack successful on {}'.format(fac))
         print('guess is {}'.format(guess_s))
     elif success and count > 1 :
-        print('attack failure.')
-        #print('few samples.')
-        #guess_s = guess + s0
-        print('guess is {}'.format(guess_s))
+        print('attack successful(?) on {}'.format(fac))
+        print('Final guess is {}'.format(guess_s))
     else:
         print('attack failure.')
         print('NOT-RLWE')
     print('attack time on {}: {}'.format(fac, cputime(idealtime)))
-
     
 
 # end of all attacks over the finite field

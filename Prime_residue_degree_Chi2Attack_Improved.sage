@@ -1,13 +1,10 @@
-#Fpの値のみに注目して攻撃を行う。
-
 from sage.stats.distributions.discrete_gaussian_integer import DiscreteGaussianDistributionIntegerSampler
 import random
 import sys
 import csv
 import numpy as np
 from scipy import stats
-load_attach_path('C:\\scripts\\sage')
-load('subcycsampler.sage','misc.sage','ExtendCyclotomic.sage')
+load('sampling/subcycsampler.sage','sampling/misc.sage','sampling/ExtendCyclotomic.sage')
 
 
 p = 11

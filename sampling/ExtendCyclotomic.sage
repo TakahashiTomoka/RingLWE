@@ -2,7 +2,7 @@
 # I will try to sample from the field bQ(zeta_p, \sqrt{d})
 # and perform the degree two attack on it.
 ##
-load('mega.sage')
+load('sampling/mega.sage')
 
 def new_t_matrix(n, prec = 100):
     """
